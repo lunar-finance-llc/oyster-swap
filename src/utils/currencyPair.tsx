@@ -137,7 +137,7 @@ export function CurrencyPairProvider({ children = null as any }) {
       tokens.find((t) => t.mintAddress === mintAddressB)?.tokenSymbol ||
       mintAddressB;
 
-    document.title = `Swap | Serum (${base}/${quote})`;
+    document.title = `Stacked Swap | Serum (${base}/${quote})`;
   }, [mintAddressA, mintAddressB, tokens, location]);
 
   // updates browser history on token changes
@@ -181,13 +181,13 @@ export function CurrencyPairProvider({ children = null as any }) {
 
     setMintAddressA(
       tokens.find((t) => t.tokenSymbol === defaultBase)?.mintAddress ||
-        (isValidAddress(defaultBase) ? defaultBase : "") ||
-        ""
+      (isValidAddress(defaultBase) ? defaultBase : "") ||
+      ""
     );
     setMintAddressB(
       tokens.find((t) => t.tokenSymbol === defaultQuote)?.mintAddress ||
-        (isValidAddress(defaultQuote) ? defaultQuote : "") ||
-        ""
+      (isValidAddress(defaultQuote) ? defaultQuote : "") ||
+      ""
     );
     // mintAddressA and mintAddressB are not included here to prevent infinite loop
     // eslint-disable-next-line

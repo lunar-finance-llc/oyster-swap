@@ -43,11 +43,21 @@ export const AppBar = (props: { left?: JSX.Element; right?: JSX.Element }) => {
           </Menu.Item>
           <Menu.Item key="trade">
             <a
-              href={"https://dex.projectserum.com"}
+              href={"https://dex.stackedinvest.com"}
               target="_blank"
               rel="noopener noreferrer"
             >
               Trade
+              <sup>↗</sup>
+            </a>
+          </Menu.Item>
+          <Menu.Item key="automate">
+            <a
+              href={"https://app.stackedinvest.com"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Automate
               <sup>↗</sup>
             </a>
           </Menu.Item>

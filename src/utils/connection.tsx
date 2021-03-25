@@ -1,8 +1,9 @@
-import { KnownToken, useLocalStorageState } from "./utils";
+import { useLocalStorageState } from "./utils";
 import {
   Account,
   clusterApiUrl,
   Connection,
+  PublicKey,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
@@ -10,6 +11,12 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { setProgramIds } from "./ids";
 import { notify } from "./notifications";
 import { ExplorerLink } from "../components/explorerLink";
+import {
+  TokenListProvider,
+  ENV as ChainID,
+  TokenInfo,
+} from "@solana/spl-token-registry";
+import { cache, getMultipleAccounts } from "./accounts";
 
 export type ENV = "mainnet-beta" | "testnet" | "devnet" | "localnet";
 
@@ -17,10 +24,23 @@ export const ENDPOINTS = [
   {
     name: "mainnet-beta" as ENV,
     endpoint: "https://solana-api.projectserum.com/",
+    chainID: ChainID.MainnetBeta,
   },
-  { name: "testnet" as ENV, endpoint: clusterApiUrl("testnet") },
-  { name: "devnet" as ENV, endpoint: clusterApiUrl("devnet") },
-  { name: "localnet" as ENV, endpoint: "http://127.0.0.1:8899" },
+  {
+    name: "testnet" as ENV,
+    endpoint: clusterApiUrl("testnet"),
+    chainID: ChainID.Testnet,
+  },
+  {
+    name: "devnet" as ENV,
+    endpoint: clusterApiUrl("devnet"),
+    chainID: ChainID.Devnet,
+  },
+  {
+    name: "localnet" as ENV,
+    endpoint: "http://127.0.0.1:8899",
+    chainID: ChainID.Devnet,
+  },
 ];
 
 const DEFAULT = ENDPOINTS[0].endpoint;
@@ -34,8 +54,8 @@ interface ConnectionConfig {
   setSlippage: (val: number) => void;
   env: ENV;
   setEndpoint: (val: string) => void;
-  tokens: KnownToken[];
-  tokenMap: Map<string, KnownToken>;
+  tokens: TokenInfo[];
+  tokenMap: Map<string, TokenInfo>;
 }
 
 const ConnectionContext = React.createContext<ConnectionConfig>({
@@ -47,7 +67,7 @@ const ConnectionContext = React.createContext<ConnectionConfig>({
   sendConnection: new Connection(DEFAULT, "recent"),
   env: ENDPOINTS[0].name,
   tokens: [],
-  tokenMap: new Map<string, KnownToken>(),
+  tokenMap: new Map<string, TokenInfo>(),
 });
 
 export function ConnectionProvider({ children = undefined as any }) {
@@ -68,31 +88,39 @@ export function ConnectionProvider({ children = undefined as any }) {
     endpoint,
   ]);
 
-  const env =
-    ENDPOINTS.find((end) => end.endpoint === endpoint)?.name ||
-    ENDPOINTS[0].name;
+  const chain =
+    ENDPOINTS.find((end) => end.endpoint === endpoint) || ENDPOINTS[0];
 
-  const [tokens, setTokens] = useState<KnownToken[]>([]);
-  const [tokenMap, setTokenMap] = useState<Map<string, KnownToken>>(new Map());
+  const env = chain.name;
+
+  const [tokens, setTokens] = useState<TokenInfo[]>([]);
+  const [tokenMap, setTokenMap] = useState<Map<string, TokenInfo>>(new Map());
   useEffect(() => {
-    // fetch token files
-    window
-      .fetch(
-        `https://raw.githubusercontent.com/solana-labs/token-list/main/src/tokens/${env}.json`
-      )
-      .then((res) => {
-        return res.json();
-      })
-      .then((list: KnownToken[]) => {
-        const knownMints = list.reduce((map, item) => {
-          map.set(item.mintAddress, item);
-          return map;
-        }, new Map<string, KnownToken>());
+    (async () => {
+      const res = await new TokenListProvider().resolve();
+      const list = res
+        .filterByChainId(chain.chainID)
+        .excludeByTag("nft")
+        .getList();
+      const knownMints = list.reduce((map, item) => {
+        map.set(item.address, item);
+        return map;
+      }, new Map<string, TokenInfo>());
 
-        setTokenMap(knownMints);
-        setTokens(list);
-      });
-  }, [env]);
+      const accounts = await getMultipleAccounts(connection, [...knownMints.keys()], 'single');
+      accounts.keys.forEach((key, index) => {
+        const account = accounts.array[index];
+        if(!account) {
+          return;
+        }
+
+        cache.addMint(new PublicKey(key), account);
+      })
+
+      setTokenMap(knownMints);
+      setTokens(list);
+    })();
+  }, [chain, connection]);
 
   setProgramIds(env);
 
